@@ -77,6 +77,10 @@ jobs:
           target: ${{ matrix.rust_target }}
           command: build
           args: --release --features bundled,mimalloc
+      - name: Get Artifact Ready
+        run: |
+          mkdir output
+          ln ./server/target/${{ matrix.rust_target }}/release/moonfire-nvr output/
       # Upload as a *job* artifact (not *release* artifact), used below.
       - name: Upload Job Artifact
         uses: actions/upload-artifact@v6
