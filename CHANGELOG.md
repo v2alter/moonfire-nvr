@@ -8,9 +8,12 @@ upgrades, e.g. `v0.6.x` -> `v0.7.x`. The config file format and
 [API](ref/api.md) currently have no stability guarantees, so they may change
 even on minor releases, e.g. `v0.7.5` -> `v0.7.6`.
 
-## unreleased
+## v0.7.31 (2026-03-13)
 
 *   support changing video sample parameters in live view.
+*   update to Retina v0.4.18, supporting cameras which improperly set the
+    RTP "MARK" bit on SEI packets.
+    Fixes [#352](https://github.com/scottlamb/moonfire-nvr/issues/352).
 
 ## v0.7.30 (2026-02-19)
 
