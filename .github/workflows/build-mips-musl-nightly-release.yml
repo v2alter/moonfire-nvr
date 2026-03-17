@@ -84,7 +84,7 @@ jobs:
             --target mipsel-unknown-linux-musl \
             --features "bundled,mimalloc" \
             --profile release \
-            --manifest-path "server"
+            --manifest-path "server/Cargo.toml"
 
           commit_id=$(echo ${{ github.sha }} | cut -c1-7)
           echo commit_id="$commit_id" >> "$GITHUB_ENV"
