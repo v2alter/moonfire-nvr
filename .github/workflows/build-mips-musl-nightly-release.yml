@@ -82,7 +82,7 @@ jobs:
           cargo +nightly build \
             -Z build-std=core,alloc,std,panic_abort \
             --target mipsel-unknown-linux-musl \
-            --features "bundled,mimalloc" \
+            --features "bundled" \
             --profile release \
             --manifest-path "server/Cargo.toml"
 
