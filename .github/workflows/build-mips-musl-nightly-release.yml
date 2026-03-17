@@ -77,7 +77,7 @@ jobs:
           [ "${{ matrix.target }}" = "mips-unknown-linux-musl" ] && target=mips || target=mipsel
           export $(echo "CARGO_TARGET_$(echo "$target" | tr '[:lower:]' '[:upper:]')_UNKNOWN_LINUX_MUSL_LINKER"="$target-openwrt-linux-musl-gcc")
           CARGO_BUILD_TARGET=${{ matrix.target }} \
-          RUSTFLAGS="-Ctarget-feature=-crt-static -lssp_nonshared -Clink-arg=-fuse-ld=bfd" \
+          RUSTFLAGS="-Ctarget-feature=-crt-static -lssp_nonshared -Clink-arg=-fuse-ld=bfd --cfg tokio_unstable" \
           TARGET_CC=$target-openwrt-linux-musl-gcc \
           cargo +nightly build \
             -Z build-std=core,alloc,std,panic_abort \
