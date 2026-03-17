@@ -1,0 +1,103 @@
+name: Build Nightly Releases
+
+defaults:
+  run:
+    shell: bash
+
+on:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  base:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - run: npm i -g pnpm
+      - run: cd ui && pnpm i --frozen-lockfile
+      - run: cd ui && pnpm run build
+      - run: cd ui && pnpm run test
+      # Upload the UI and changelog as *job* artifacts (not *release* artifacts), used below.
+      - uses: actions/upload-artifact@v6
+        with:
+          name: moonfire-nvr-ui-${{ github.ref_name }}
+          path: ui/dist
+          if-no-files-found: error
+
+  cross:
+    needs: base # for bundled ui
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        target:
+          - mipsel-unknown-linux-musl
+      fail-fast: false
+    runs-on: ubuntu-latest
+    env:
+      RUST_BACKTRACE: full
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          bash <(curl --proto '=https' --tlsv1.2 -sS ${{ secrets.RUSTUP }})
+
+      - name: Install upx
+        run: |
+          wget https://github.com/upx/upx/releases/download/v4.2.4/upx-4.2.4-amd64_linux.tar.xz
+          tar Jxf upx-4.2.4-amd64_linux.tar.xz
+          sudo install -m 755 upx-4.2.4-amd64_linux/upx /usr/bin/upx
+          rm -rf upx-4.2.4-amd64_linux*
+
+      - name: Download UI
+        uses: actions/download-artifact@v7
+        with:
+          name: moonfire-nvr-ui-${{ github.ref_name }}
+          path: ui/dist
+
+      - name: Build ${{ matrix.target }}
+        timeout-minutes: 120
+        env:
+          UI_BUILD_DIR: ../ui/dist
+
+          # cross doesn't install `git` within its Docker container, so plumb
+          # the version through rather than try `git describe` from `build.rs`.
+          VERSION: ${{ github.ref_name }}
+        run: |
+          [ "${{ matrix.target }}" = "mips-unknown-linux-musl" ] && target=mips || target=mipsel
+          export $(echo "CARGO_TARGET_$(echo "$target" | tr '[:lower:]' '[:upper:]')_UNKNOWN_LINUX_MUSL_LINKER"="$target-openwrt-linux-musl-gcc")
+          CARGO_BUILD_TARGET=${{ matrix.target }} \
+          RUSTFLAGS="-Ctarget-feature=-crt-static -lssp_nonshared -Clink-arg=-fuse-ld=bfd" \
+          TARGET_CC=$target-openwrt-linux-musl-gcc \
+          cargo +nightly build \
+            -Z build-std=core,alloc,std,panic_abort \
+            --target mipsel-unknown-linux-musl \
+            --features "bundled,mimalloc" \
+            --profile release \
+            --manifest-path "server"
+
+          commit_id=$(echo ${{ github.sha }} | cut -c1-7)
+          echo commit_id="$commit_id" >> "$GITHUB_ENV"
+          upx -9 ./server/target/${{ matrix.target }}/release/moonfire-nvr
+
+      - name: Get Artifact Ready
+        run: |
+          mkdir output
+          ln ./server/target/${{ matrix.target }}/release/moonfire-nvr output/
+      # Upload as a *job* artifact (not *release* artifact), used below.
+      - name: Upload Job Artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: moonfire-nvr-${{ github.ref_name }}-${{ matrix.target }}-${{ env.commit_id }}
+          path: output/moonfire-nvr
+          if-no-files-found: error
